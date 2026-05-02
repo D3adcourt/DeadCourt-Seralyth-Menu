@@ -44,6 +44,7 @@ namespace Seralyth.Mods
 {
     public static class Sound
     {
+        public static bool LegacySoundboard = false;
         public static bool LoopAudio = false;
         public static bool OverlapAudio = false;
         public static int BindMode;
@@ -137,7 +138,7 @@ namespace Seralyth.Mods
 
                     soundButtons.Add(buttonInfo);
                 }
-                else
+                else if (!RecorderPatch.enabled || LegacySoundboard)
                 {
                     if (BindMode > 0)
                     {

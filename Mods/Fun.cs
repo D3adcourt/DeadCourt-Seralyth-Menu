@@ -865,7 +865,7 @@ namespace Seralyth.Mods
                 RaycastHit Ray = GunData.Ray;
 
                 foreach (VRRig rig in VRRigCache.Instance.GetAllRigs())
-                    rig.voiceAudio.volume = rig != lockTarget ? 0.1f : 1f;
+                    rig.voiceAudio.volume = rig != lockTarget ? 0.1f : 2f;
 
                 if (GetGunInput(true))
                 {

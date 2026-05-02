@@ -4569,7 +4569,7 @@ namespace Seralyth.Mods
         {
             if (airSwimPart == null)
             {
-                airSwimPart = Object.Instantiate(GetObject("Environment Objects/LocalObjects_Prefab/ForestToBeach/ForestToBeach_Prefab_V4/ForestToBeach_Geo"));
+                airSwimPart = Object.Instantiate(GetObject("Environment Objects/LocalObjects_Prefab/ForestToBeach/ForestToBeach_Prefab_V4/ForestToBeach_Geo/CaveWaterVolume"));
                 airSwimPart.transform.localScale = new Vector3(5f, 5f, 5f);
                 airSwimPart.GetComponent<Renderer>().enabled = false;
             }

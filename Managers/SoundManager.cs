@@ -35,7 +35,7 @@ namespace Seralyth.Managers
             ["Buttons"] = new Dictionary<string, object>
             {
                 { "Wood", 0 },
-                { "Keyboard", "Audio/Menu/Buttons/keyboard.ogg" },
+                { "Keyboard", 66 },
                 { "Default", 67 },
                 { "Bubble", 84 },
                 { "Steal", "Audio/Menu/Buttons/steal.ogg" },
@@ -256,7 +256,7 @@ namespace Seralyth.Managers
             }
         }
 
-        private static string ResolveSoundPath(string sound, string buttonText = null)
+        private static object ResolveSoundPath(string sound, string buttonText = null)
         {
             if (string.IsNullOrEmpty(sound)) return null;
 
@@ -314,25 +314,30 @@ namespace Seralyth.Managers
                 rawPath = baseRequestedPath;
             }
 
-            if (!(rawPath is string s)) return null;
-            if (string.IsNullOrEmpty(s)) return null;
-
-            if (s.Contains("lever$1"))
+            if (rawPath is string s)
             {
-                if (!string.IsNullOrEmpty(buttonText))
+                if (string.IsNullOrEmpty(s)) return null;
+
+                if (s.Contains("lever$1"))
                 {
-                    var button = Buttons.GetIndex(buttonText);
-                    s = s.Replace("$1", button != null && button.enabled ? "up" : "down");
+                    if (!string.IsNullOrEmpty(buttonText))
+                    {
+                        var button = Buttons.GetIndex(buttonText);
+                        s = s.Replace("$1", button != null && button.enabled ? "up" : "down");
+                    }
+                    else
+                    {
+                        s = s.Replace("lever$1", "leverup");
+                    }
                 }
-                else
-                {
-                    s = s.Replace("lever$1", "leverup");
-                }
+
+                return s;
             }
 
-            return s;
-        }
+            if (rawPath is int)
+                return rawPath;
 
+            return null;
+        }
     }
 }
-

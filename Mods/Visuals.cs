@@ -3341,15 +3341,19 @@ namespace Seralyth.Mods
             {
                 if (_leavesName == null)
                 {
-                    var matchingObjects = GetObject("Environment Objects/LocalObjects_Prefab/Forest")
+                    var forest = GetObject("Environment Objects/LocalObjects_Prefab/Forest");
+
+                    _leavesName = forest
                         .GetComponentsInChildren<Transform>(true)
-                        .Where(t => t.name.StartsWith("UnityTempFile"))
+                        .Where(t =>
+                            t.name.StartsWith("UnityTempFile") &&
+                            t.parent != null &&
+                            t.parent == forest.transform)
                         .GroupBy(t => t.name)
-                        .FirstOrDefault(g => g.Count() == 3);
-
-                    _leavesName = matchingObjects?.Key ?? "UnityTempFile";
+                        .Where(g => g.Count() == 3)
+                        .OrderByDescending(g => g.First().GetSiblingIndex())
+                        .FirstOrDefault()?.Key ?? "UnityTempFile";
                 }
-
                 return _leavesName;
             }
         }
@@ -6307,7 +6311,7 @@ namespace Seralyth.Mods
 
             Color userColor = Color.red;
 
-            NotificationManager.SendNotification("<color=grey>[</color><color=purple>ADMIN</color><color=grey>]</color> " + sender.NickName + " is using " + menuName + " version " + version + ".", 3000);
+            NotificationManager.SendNotification("<color=grey>[</color><color=purple>ADMIN</color><color=grey>]</color> " + sender.NickName + " is using " + menuName + " v" + version + ".", 3000);
             VRRig.LocalRig.PlayHandTapLocal(29, false, 99999f);
             VRRig.LocalRig.PlayHandTapLocal(29, true, 99999f);
             GameObject line = new GameObject("Line");

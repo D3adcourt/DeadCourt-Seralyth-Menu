@@ -40,7 +40,7 @@ namespace Seralyth.Mods
 {
     public static class Advantages
     {
-        public static bool instantTag;
+        public static bool instantTag = true;
 
         public static void TagSelf()
         {

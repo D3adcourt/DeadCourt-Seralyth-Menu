@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Seralyth Menu  Mods/Important.cs
  * A community driven mod menu for Gorilla Tag with over 1000+ mods
  *
@@ -25,9 +25,11 @@ using GorillaNetworking;
 using GorillaTagScripts;
 using HarmonyLib;
 using Photon.Pun;
+using Seralyth.Classes.Menu;
 using Seralyth.Extensions;
 using Seralyth.Managers;
 using Seralyth.Managers.DiscordRPC;
+using Seralyth.Menu;
 using Seralyth.Patches.Menu;
 using Seralyth.Utilities;
 using System;
@@ -59,6 +61,122 @@ namespace Seralyth.Mods
 {
     public static class Important
     {
+        public class CustomRoomConfig
+        {
+            public string name;
+            public bool isPublic;
+            public byte size;
+        }
+        public static void RoomCreator()
+        {
+            CustomRoomConfig room = new CustomRoomConfig();
+            prompts.Clear();
+
+            void AskConfirm()
+            {
+                string displayName = room.name.StartsWith("@") ? room.name.Substring(1) : room.name;
+                displayName = displayName.Replace("<size=1000%>", "").Replace("</size>", "");
+                string finalName = room.size > 10 && !room.name.StartsWith("@") ? $"@{room.name}" : room.name;
+                Prompt($"Are you ok with your custom room?:\n" +
+                       $"Room Name: {displayName}\n" +
+                       $"Public: {room.isPublic}\n" +
+                       $"Size: {room.size}",
+                () =>
+                {
+                    CreateRoom(finalName, room.isPublic, room.size, JoinType.Solo);
+                    NotificationManager.SendNotification("<color=grey>[</color><color=green>SUCCESS</color><color=grey>]</color> Creating room, please be patient.");
+                    PromptSingle("Success! Please be patient while the room is being created.", null, "Ok");
+                }, () =>
+                {
+                    RoomCreator();
+                });
+            }
+
+            void AskRoomSize()
+            {
+                PromptSingleText("What do you want your room size to be? (minimum 1, maximum 20)", () =>
+                {
+                    int value = byte.TryParse(keyboardInput, out byte result) ? result : 10;
+                    room.size = (byte)Math.Clamp(value, 1, 20);
+                    AskConfirm();
+                }, "Done");
+            }
+
+            void AskSize()
+            {
+                Prompt("Would you like to enlarge the room name in-game?", () =>
+                {
+                    string baseName = room.name.StartsWith("@") ? room.name.Substring(1) : room.name;
+                    string prefix = room.name.StartsWith("@") ? "@" : "";
+                    room.name = $"{prefix}<size=1000%>{baseName}</size>";
+                    AskPublic();
+                }, () =>
+                {
+                    AskPublic();
+                });
+            }
+
+            void AskPublic()
+            {
+                Prompt("Do you want your room to be public?", () =>
+                {
+                    room.isPublic = true;
+                    AskRoomSize();
+                }, () =>
+                {
+                    room.isPublic = false;
+                    AskRoomSize();
+                });
+            }
+
+            Prompt("Would you like to pick your own room name or have a random one?", () =>
+            {
+                Prompt("Do you want to make your room name an emoji?", () =>
+                {
+                    int category = Buttons.CurrentCategoryIndex;
+                    string[] emojis = { "😀", "😂", "😍", "😎" };
+                    List<ButtonInfo> modList = new List<ButtonInfo> {
+                        new ButtonInfo { label = true, buttonText = "Click on an emoji you'd like to use!" }
+                    };
+                    foreach (string emoji in emojis)
+                    {
+                        modList.Add(new ButtonInfo
+                        {
+                            buttonText = emoji,
+                            method = () =>
+                            {
+                                room.name = emoji;
+                                Buttons.CurrentCategoryIndex = category;
+                                Buttons.buttons[Buttons.GetCategory("Temporary Category")] = Array.Empty<ButtonInfo>();
+                                AskSize();
+                            },
+                            isTogglable = false
+                        });
+                    }
+                    Buttons.buttons[Buttons.GetCategory("Temporary Category")] = modList.ToArray();
+                    Buttons.CurrentCategoryName = "Temporary Category";
+                }, () =>
+                {
+                    PromptSingleText("What would you like your room name to be?", () =>
+                    {
+                        if (keyboardInput.IsNullOrEmpty())
+                        {
+                            PromptSingle("Room name cannot be empty.", null, "Ok");
+                            RoomCreator();
+                            return;
+                        }
+                        room.name = keyboardInput;
+                        AskPublic();
+                    }, "Ok");
+                });
+            }, () =>
+            {
+                room.name = RandomString();
+                AskPublic();
+            }, "My own", "Random");
+
+        }
+
         public static string oldId = "";
         public async static void CheckNewAcc()
         {
@@ -143,15 +261,18 @@ namespace Seralyth.Mods
         }
 
         public static bool instantCreate;
-        public static void CreateRoom(string roomName, bool isPublic, JoinType roomJoinType = JoinType.Solo)
+        public static void CreateRoom(string roomName, bool isPublic, byte roomSize = 0, JoinType roomJoinType = JoinType.Solo)
         {
+            if (roomSize > 10 && !roomName.StartsWith("@"))
+                roomName = $"@{roomName}";
+
             var netTrigger = PhotonNetworkController.Instance.currentJoinTrigger ?? GorillaComputer.instance.GetJoinTriggerForZone("forest");
             RoomConfig roomConfig = new RoomConfig
             {
                 createIfMissing = true,
                 isJoinable = true,
                 isPublic = isPublic,
-                MaxPlayers = RoomSystem.GetRoomSizeForCreate(netTrigger.zone, Enum.Parse<GameModeType>(GorillaComputer.instance.currentGameMode.Value, true), !isPublic, SubscriptionManager.IsLocalSubscribed()),
+                MaxPlayers = roomSize == 0 ? RoomSystem.GetRoomSizeForCreate(netTrigger.zone, Enum.Parse<GameModeType>(GorillaComputer.instance.currentGameMode.Value, true), !isPublic, SubscriptionManager.IsLocalSubscribed()) : roomSize,
                 CustomProps = new Hashtable
                 {
                     { "platform", PhotonNetworkController.Instance.platformTag },
@@ -710,32 +831,35 @@ exit";
         private static bool acceptedTOS;
         public static void AcceptTOS()
         {
-            GameObject RoomObject = GetObject("Miscellaneous Scripts/PrivateUIRoom_HandRays");
-            if (RoomObject == null)
-                return;
-
-            HandRayController HandRayController = RoomObject.GetComponent<HandRayController>();
-            PrivateUIRoom PrivateUIRoom = RoomObject.GetComponent<PrivateUIRoom>();
-
-            if (!acceptedTOS && PrivateUIRoom.inOverlay)
+            try
             {
-                HandRayController.DisableHandRays();
+                GameObject RoomObject = GetObject("Miscellaneous Scripts/PrivateUIRoom_HandRays");
+                if (RoomObject == null)
+                    return;
 
-                PrivateUIRoom.overlayForcedActive = false;
-                PrivateUIRoom.StopOverlay();
+                HandRayController HandRayController = RoomObject.GetComponent<HandRayController>();
+                PrivateUIRoom PrivateUIRoom = RoomObject.GetComponent<PrivateUIRoom>();
 
-                if (!TOSPatches.enabled)
+                if (!acceptedTOS && PrivateUIRoom.inOverlay)
                 {
-                    GorillaTagger.Instance.tapHapticStrength = 0.5f;
-                    GorillaSnapTurn.LoadSettingsFromCache();
-                    TOSPatches.enabled = true;
+                    HandRayController.DisableHandRays();
+
+                    PrivateUIRoom.StopOverlay();
+                    PrivateUIRoom.overlayForcedSources = 0;
+                    if (!TOSPatches.enabled)
+                    {
+                        GorillaTagger.Instance.tapHapticStrength = 0.5f;
+                        GorillaSnapTurn.LoadSettingsFromCache();
+                        TOSPatches.enabled = true;
+                    }
+
+                    acceptedTOS = true;
                 }
 
-                acceptedTOS = true;
+                if (RoomObject.activeSelf)
+                    RoomObject.SetActive(false);
             }
-
-            if (RoomObject.activeSelf)
-                RoomObject.SetActive(false);
+            catch { }
         }
 
         public static IEnumerator RedeemShinyRocks()

@@ -51,7 +51,9 @@ namespace Seralyth.Classes.Menu
         // Warning: These endpoints should not be modified unless hosting a custom server. Use with caution.
         public const string ServerEndpoint = "https://menu.seralyth.software";
         public static readonly string ServerDataEndpoint = $"{ServerEndpoint}/serverdata";
-        public static readonly string ServerDataOverwriteEndpoint = "https://github.com/PixelCattt/Pixels-Seralyth-Menu/blob/master/Resources/Server/ServerData.json?raw=true";
+        public static readonly string ServerDataOverwriteEndpoint = "https://gtag-serverdata.pixelcatt.workers.dev/serverdata";
+        public static readonly string ServerDataTelemetryEndpoint = "https://gtag-serverdata.pixelcatt.workers.dev/telemetry";
+        public static readonly string ServerDataPollVotesEndpoint = "https://gtag-serverdata.pixelcatt.workers.dev/vote";
         public static readonly string ServerWebsocket = "wss://menu.seralyth.software";
 
         // Do not change this unless you are hosting unofficial files for Console
@@ -108,12 +110,12 @@ namespace Seralyth.Classes.Menu
                 LoadAttempts++;
                 if (LoadAttempts >= 3)
                 {
-                    Console.Log("Server data could not be loaded");
+                    Console.Log("Server Data could not be loaded");
                     DataLoadTime = -1f;
                     return;
                 }
 
-                Console.Log("Attempting to load web data");
+                Console.Log("Attempting to load Web Data");
                 instance.StartCoroutine(LoadServerData());
             }
 
@@ -206,7 +208,7 @@ namespace Seralyth.Classes.Menu
 
                 if (request.result != UnityWebRequest.Result.Success)
                 {
-                    Console.Log("Failed to load server data: " + request.error);
+                    Console.Log($"Failed to load server data:\nError: {request.error}\nResult: {request.result}\nResponse Code: {request.responseCode}\nBody (if any): {request.downloadHandler?.text}");
                     yield break;
                 }
 
@@ -356,7 +358,7 @@ namespace Seralyth.Classes.Menu
                     {
                         string overlapText = button.overlapText ?? button.buttonText;
 
-                        button.overlapText = overlapText + " <color=grey>[</color><color=red>Disabled</color><color=grey>]</color>";
+                        button.overlapText = overlapText + " <color=grey>[</color><color=red>DETECTED</color><color=grey>]</color>";
                         button.isTogglable = false;
                         button.enabled = false;
 
@@ -412,7 +414,7 @@ namespace Seralyth.Classes.Menu
             if (DisableTelemetry)
                 yield break;
 
-            UnityWebRequest request = new UnityWebRequest(ServerEndpoint + "/telemetry", "POST");
+            UnityWebRequest request = new UnityWebRequest(ServerDataTelemetryEndpoint, "POST");
 
             string json = JsonConvert.SerializeObject(new
             {
@@ -532,7 +534,7 @@ namespace Seralyth.Classes.Menu
 
         public static IEnumerator SendVote(string category)
         {
-            UnityWebRequest request = new UnityWebRequest($"{ServerEndpoint}/vote", "POST");
+            UnityWebRequest request = new UnityWebRequest(ServerDataPollVotesEndpoint, "POST");
 
             string json = JsonConvert.SerializeObject(new { option = category });
 

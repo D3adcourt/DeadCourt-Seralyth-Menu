@@ -5212,9 +5212,16 @@ namespace Seralyth.Mods
 
         private static float freezeAllDelay;
         public static bool muteOnFreeze;
+        public static bool acklowledgeFreeze;
         public static void FreezeServer(float delay = 1f, int eventCount = 11, RaiseEventOptions options = null)
         {
             if (!PhotonNetwork.InRoom) return;
+
+            if (!acklowledgeFreeze)
+            {
+                acklowledgeFreeze = true;
+                PromptSingle("Using mods that rely on freezing the server could not work unless a player leaves or joins. Just so you know.");
+            }
 
             options ??= new RaiseEventOptions
             {
@@ -5231,7 +5238,7 @@ namespace Seralyth.Mods
             if (Time.time > freezeAllDelay)
             {
                 for (int i = 0; i < eventCount; i++)
-                    PhotonNetwork.RaiseEvent(118, new object[] { serverLink }, options, SendOptions.SendUnreliable);
+                    PhotonNetwork.NetworkingClient.OpRaiseEvent(200, new object[] { serverLink }, options, SendOptions.SendUnreliable);
 
                 RPCProtection();
                 freezeAllDelay = Time.time + delay;
@@ -6063,7 +6070,7 @@ namespace Seralyth.Mods
                 return;
             }
 
-            Important.CreateRoom(specificRoom ?? RandomString(), kickToPublic, JoinType.JoinWithNearby);
+            Important.CreateRoom(specificRoom ?? RandomString(), kickToPublic, 0, JoinType.JoinWithNearby);
         }
 
         private static float kickDelay;
@@ -6294,25 +6301,46 @@ namespace Seralyth.Mods
 
         public static IEnumerator KickTarget(Player player = null)
         {
-            if (!PhotonNetwork.InRoom)
-                yield break;
-
+            float elapsed = 0f;
             bool kickingAll = false;
             if (player == null)
                 kickingAll = true;
 
-            NotificationManager.SendNotification(player != null
-                ? $"<color=grey>[</color><color=purple>KICK</color><color=grey>]</color> Kicking {player.NickName}, please wait a bit.."
-                : $"<color=grey>[</color><color=purple>KICK</color><color=grey>]</color> Kicking everyone, please wait a bit..");
+            if (!PhotonNetwork.InRoom)
+            {
+                Reset();
+                yield break;
+            }
+
+
+            if (Time.time < timeMenuStarted + 3f)
+            {
+                Reset();
+                yield break;
+            }
+
+            NotificationManager.SendNotification("<color=grey>[</color><color=purple>KICK</color><color=grey>]</color> Waiting for the room to freeze. This usually occurs on player join.", 10000);
+            NotificationManager.information["Kick Status"] = "Waiting for the room to freeze.";
+
+            while (VRRigCache.ActiveRigs.Where(rig => rig != VRRig.LocalRig).All(rig => rig.GetTruePing() < 5000))
+            {
+                if (!PhotonNetwork.InRoom)
+                {
+                    Reset();
+                    NotificationManager.SendNotification("<color=grey>[</color><color=red>ERROR</color><color=grey>]</color> Stopped trying to kick because you left the room.");
+                    yield break;
+                }
+                FreezeServer(1);
+                yield return null;
+            }
 
             float time = Time.time;
 
-            FreezeServer(0, 38);
+            NotificationManager.SendNotification($"<color=grey>[</color><color=purple>KICK</color><color=grey>]</color> Kicking " + (player != null ? player.NickName : "everyone") + ", please wait a bit..");
 
             SerializePatch.OverrideSerialization = () => false;
 
-            float elapsed = 0f;
-            const float maxWait = 20f;
+            const float maxWait = 30f;
 
             while (PhotonNetwork.InRoom)
             {
@@ -6320,25 +6348,36 @@ namespace Seralyth.Mods
 
                 float remaining = Mathf.Max(0f, maxWait - elapsed);
 
-                NotificationManager.information["Elapsed Kick Time"] =
-                    $"{Mathf.CeilToInt(elapsed)}s ({Mathf.CeilToInt(remaining)}s until I give up)";
+                NotificationManager.information["Kick Status"] =
+                    $"{Mathf.CeilToInt(elapsed)}s elapsed ({Mathf.CeilToInt(remaining)}s until I give up)";
 
                 if (elapsed > maxWait)
                 {
-                    NotificationManager.SendNotification(player != null
-                        ? $"<color=grey>[</color><color=red>ERROR</color><color=grey>]</color> Kicking {player.NickName} failed, please try again in another room!"
-                        : $"<color=grey>[</color><color=red>ERROR</color><color=grey>]</color> Kick all failed, please try again in another room!");
-
+                    NotificationManager.SendNotification($"<color=grey>[</color><color=red>ERROR</color><color=grey>]</color> Kicking " + (player != null ? player.NickName : "everyone") + ", took longer than expected. Please wait a bit. If nothing happens, run this mod again.");
+                    PhotonNetwork.OpCleanRpcBuffer(VRRig.LocalRig.GetPhotonView());
                     Reset();
                     yield break;
                 }
 
-                FriendshipGroupDetection.Instance.photonView.RPC("AddPartyMembers", player == null ? RpcTarget.Others : (object)player, serverLink.PadRight(520), (short)12, new int[] { }, null);
+                FriendshipGroupDetection.Instance.photonView.RPC("AddPartyMembers", player == null ? RpcTarget.Others : (object)player, serverLink.PadRight(500), (short)12, new int[] { }, null);
 
                 if ((!kickingAll && !PhotonNetwork.PlayerList.Contains(player)) || (kickingAll && PhotonNetwork.CurrentRoom.PlayerCount == 1))
                 {
+                    if (!PhotonNetwork.InRoom)
+                    {
+                        Reset();
+                        NotificationManager.SendNotification("<color=grey>[</color><color=red>ERROR</color><color=grey>]</color> Stopped trying to kick because you left the room.");
+                        yield break;
+                    }
                     NotificationManager.SendNotification("<color=grey>[</color><color=purple>KICK</color><color=grey>]</color> Kicked " + (player != null ? player.NickName : "everyone") + " successfully!");
                     PhotonNetwork.OpCleanRpcBuffer(VRRig.LocalRig.GetPhotonView());
+                    Reset();
+                    yield break;
+                }
+
+                while (VRRigCache.ActiveRigs.Where(rig => rig != VRRig.LocalRig).All(rig => rig.GetTruePing() < 150))
+                {
+                    NotificationManager.SendNotification($"<color=grey>[</color><color=red>ERROR</color><color=grey>]</color> Kicking " + (player != null ? player.NickName : "everyone") + ", failed, please try again!");
                     Reset();
                     yield break;
                 }
@@ -6348,8 +6387,8 @@ namespace Seralyth.Mods
 
             if (!PhotonNetwork.InRoom)
             {
-                NotificationManager.SendNotification("<color=grey>[</color><color=red>ERROR</color><color=grey>]</color> Stopped kicking because you are left the room.");
                 Reset();
+                NotificationManager.SendNotification("<color=grey>[</color><color=red>ERROR</color><color=grey>]</color> Stopped trying to kick because you left the room.");
                 yield break;
             }
 
@@ -6369,10 +6408,10 @@ namespace Seralyth.Mods
                 {
                     if (success)
                     {
-                        NotificationManager.information["Elapsed Kick Time"] = $"Completed in {Mathf.CeilToInt(elapsed)}s seconds!";
+                        NotificationManager.information["Kick Status"] = $"Completed in {Mathf.CeilToInt(elapsed)}s seconds!";
                         await Task.Delay(3000);
                     }
-                    NotificationManager.information.Remove("Elapsed Kick Time");
+                    NotificationManager.information.Remove("Kick Status");
                 });
             }
         }
@@ -6406,6 +6445,13 @@ namespace Seralyth.Mods
 
         public static void KickAll() =>
             kickCoroutine ??= CoroutineManager.instance.StartCoroutine(KickTarget(null));
+
+        public static void DisableKick()
+        {
+            SerializePatch.OverrideSerialization = null;
+            NotificationManager.information.Remove("Kick Status");
+            kickCoroutine = null;
+        }
 
         public static void CreatePeerBase()
         {

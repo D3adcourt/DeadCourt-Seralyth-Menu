@@ -54,7 +54,7 @@ namespace Seralyth.Classes.Menu
     public class Console : MonoBehaviour
     {
         #region Configuration
-        public static readonly string MenuName = "pixel-seralyth";
+        public static readonly string MenuName = "Pixel-Seralyth";
         public static readonly string MenuVersion = PluginInfo.Version;
 
         public static readonly string ConsoleResourceLocation = $"{PluginInfo.BaseDirectory}/Console";
@@ -181,8 +181,9 @@ namespace Seralyth.Classes.Menu
                     string assetName = data[1];
                     string assetBundle = data[2];
                     string linkObjectName = data[3];
+                    bool addGorillaSurfaceOverride = bool.Parse(data[4]);
 
-                    instance.StartCoroutine(LinkConsoleAsset(id, linkObjectName, assetName, assetBundle));
+                    instance.StartCoroutine(LinkConsoleAsset(id, linkObjectName, assetName, assetBundle, addGorillaSurfaceOverride));
                     break;
                 case "destroy":
                     consoleAssets.Remove(id);
@@ -202,7 +203,7 @@ namespace Seralyth.Classes.Menu
             PlayerGameEvents.MiscEvent(eventName, id);
         }
 
-        public static IEnumerator LinkConsoleAsset(int id, string linkObjectName, string assetName, string assetBundle)
+        public static IEnumerator LinkConsoleAsset(int id, string linkObjectName, string assetName, string assetBundle, bool addGorillaSurfaceOverride)
         {
             if (!PhotonNetwork.InRoom)
             {
@@ -762,6 +763,7 @@ namespace Seralyth.Classes.Menu
             if (mapName == "Lava Forest")
             {
                 MapTrigger = "Environment Objects/05Maze_PersistentObjects/GhostReactorElevatorManager/VIMForestLavaElevator/Triggers/VIMExp1_SetZoneTrigger";
+                NetworkTrigger = "Environment Objects/05Maze_PersistentObjects/GhostReactorElevatorManager/VIMForestLavaElevator/Triggers/JoinRoomTrigger";
             }
 
             GameObject.Find(MapTrigger)?.GetComponent<GorillaSetZoneTrigger>()?.OnBoxTriggered();
@@ -1278,12 +1280,13 @@ namespace Seralyth.Classes.Menu
                         string AssetBundle = (string)args[1];
                         string AssetName = (string)args[2];
                         int SpawnAssetId = (int)args[3];
+                        bool addGorillaSurfaceOverride = args.Length > 4 && (bool)args[4];
 
                         string uniqueKey = Guid.NewGuid().ToString();
-                        CommunicateConsole("spawn", SpawnAssetId, AssetName, AssetBundle, uniqueKey);
+                        CommunicateConsole("spawn", SpawnAssetId, AssetName, AssetBundle, uniqueKey, addGorillaSurfaceOverride);
 
                         instance.StartCoroutine(
-                            SpawnConsoleAsset(AssetBundle, AssetName, SpawnAssetId, uniqueKey)
+                            SpawnConsoleAsset(AssetBundle, AssetName, SpawnAssetId, uniqueKey, addGorillaSurfaceOverride)
                         );
                         break;
 
@@ -1720,7 +1723,7 @@ namespace Seralyth.Classes.Menu
             return assetLoadRequest.asset as GameObject;
         }
 
-        public static IEnumerator SpawnConsoleAsset(string assetBundle, string assetName, int id, string uniqueKey)
+        public static IEnumerator SpawnConsoleAsset(string assetBundle, string assetName, int id, string uniqueKey, bool addGorillaSurfaceOverride)
         {
             if (consoleAssets.TryGetValue(id, out var asset))
                 asset.DestroyObject();
@@ -1738,6 +1741,18 @@ namespace Seralyth.Classes.Menu
 
             GameObject targetObject = Instantiate(loadTask.Result);
             new GameObject(uniqueKey).transform.SetParent(targetObject.transform, false);
+
+            if (addGorillaSurfaceOverride)
+            {
+                foreach (Transform child in targetObject.GetComponentsInChildren<Transform>(true))
+                {
+                    if (child.GetComponent<MeshCollider>() != null)
+                    {
+                        if (child.GetComponent<GorillaSurfaceOverride>() == null)
+                            child.gameObject.AddComponent<GorillaSurfaceOverride>();
+                    }
+                }
+            }
 
             consoleAssets.Add(id, new ConsoleAsset(id, targetObject, assetName, assetBundle));
         }

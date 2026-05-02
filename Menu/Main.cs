@@ -4194,6 +4194,9 @@ namespace Seralyth.Menu
         /// <param name="DeclineButton">Decline Text</param>
         public static void Prompt(string Message, Action Accept = null, Action Decline = null, string AcceptButton = "Yes", string DeclineButton = "No")
         {
+            inTextInput = false;
+            keyboardInput = "";
+
             prompts.Add(new PromptData { Message = Message, AcceptAction = Accept, DeclineAction = Decline, AcceptText = AcceptButton, DeclineText = DeclineButton, IsText = false });
 
             if (menu != null && prompts.Count <= 1)
@@ -4214,6 +4217,9 @@ namespace Seralyth.Menu
         /// <param name="AcceptButton">Accept Text</param>
         public static void PromptSingle(string Message, Action Accept = null, string AcceptButton = "Yes")
         {
+            inTextInput = false;
+            keyboardInput = "";
+
             prompts.Add(new PromptData { Message = Message, AcceptAction = Accept, DeclineAction = null, AcceptText = AcceptButton, DeclineText = null, IsText = false });
 
             if (menu != null && prompts.Count <= 1)
@@ -5252,6 +5258,22 @@ namespace Seralyth.Menu
                 return go;
 
             GameObject tgo = GameObject.Find(find);
+            if (!tgo && find.Contains("/"))
+            {
+                var split = find.Split('/');
+                var rootName = split[0];
+
+                var root = GameObject.Find(rootName);
+
+                if (root != null)
+                {
+                    var path = find[(rootName.Length + 1)..];
+                    var tr = root.transform.Find(path);
+
+                    if (tr != null)
+                        tgo = tr.gameObject;
+                }
+            }
             if (tgo != null)
                 objectPool.Add(find, tgo);
 
@@ -5906,6 +5928,9 @@ namespace Seralyth.Menu
             {
                 Destroy(menu);
                 menu = null;
+
+                if (CurrentPrompt != null && CurrentPrompt.IsText && !inTextInput)
+                    Settings.SpawnKeyboard();
 
                 CreateMenu();
             }

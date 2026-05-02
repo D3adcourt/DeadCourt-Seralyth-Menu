@@ -23,7 +23,7 @@ using HarmonyLib;
 
 namespace Seralyth.Patches.Menu
 {
-    [HarmonyPatch(typeof(FriendCard), nameof(FriendCard.Populate))]
+    [HarmonyPatch(typeof(FriendCard), nameof(FriendCard.Populate), new[] { typeof(FriendBackendController.Friend), typeof(bool) })]
     public class PopulatePatch
     {
         public static bool enabled;

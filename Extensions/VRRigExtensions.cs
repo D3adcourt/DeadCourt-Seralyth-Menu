@@ -66,7 +66,7 @@ namespace Seralyth.Extensions
                 suspiciouslyPC++;
 
             if (rig.currentRankedSubTierPC > 0)
-                suspiciouslySteam++;
+                suspiciouslyPC++;
             else if (rig.currentRankedSubTierQuest > 0)
                 suspiciouslyQuest++;
 

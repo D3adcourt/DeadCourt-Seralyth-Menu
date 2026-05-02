@@ -543,7 +543,7 @@ namespace Seralyth.Managers
                                 if (!PlatformNetworking)
                                     break;
 
-                                if (Experimental.platExcluded.Contains(sender.UserId) && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
+                                if (AdminMods.platExcluded.Contains(sender.UserId) && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                                     break;
 
                                 bool leftHand = (bool)args[1];
